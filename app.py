@@ -4,9 +4,11 @@ import pickle
 from sklearn.metrics.pairwise import cosine_similarity
 
 # Load the saved model and preprocessors
-with open('/Users/trungdungle/Desktop/các hệ hỗ trợ ra quyết định /final project /code chính /Model/laptop_recommender.pkl2', 'rb') as f:
+with open('/workspaces/final_dsssss/laptop_recommender.pkl2', 'rb') as f:
     df, tfidf, tfidf_matrix, cosine_sim = pickle.load(f)
 
+# Convert the 'new price' column to numeric for filtering
+df['new price'] = df['new price'].astype(str).str.replace(r'[^\d.]', '', regex=True).astype(float)
 # Get unique options for suitable_for and os_system
 suitable_for_options = df['suitable for'].unique()
 os_system_options = df['os system'].unique()
@@ -21,14 +23,15 @@ def get_recommendations(suitable_for, os_system, budget, top_n=20):
     if filtered_data.empty:
         return []
     filtered_indices = filtered_data.index.tolist()
-    index_mapping = {index: pos for pos, index in enumerate(df.index)}
-    filtered_positions = [index_mapping[idx] for idx in filtered_indices]
-    sim_scores = cosine_similarity(tfidf_matrix[filtered_positions], tfidf_matrix)
+
+    # Chỉ sử dụng cosine similarity trên các hàng đã được lọc
+    sim_scores = cosine_sim[filtered_indices, :][:, filtered_indices]
+
     mean_sim_scores = sim_scores.mean(axis=0)
     similarity_scores = list(enumerate(mean_sim_scores))
     similarity_scores = sorted(similarity_scores, key=lambda x: x[1], reverse=True)
-    top_products = [i[0] for i in similarity_scores[:top_n]]
-    recommended_products = df.iloc[top_products][['name', 'description', 'picture-src',]].copy()
+    top_products = [filtered_indices[i[0]] for i in similarity_scores[:top_n]]  # Lấy chỉ số từ filtered_indices
+    recommended_products = df.iloc[top_products][['name', 'description', 'picture-src']].copy()
     return recommended_products.to_dict('records')
 
 # Streamlit app
